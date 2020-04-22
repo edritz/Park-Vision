@@ -22,6 +22,46 @@ from time import sleep
 
 delta = 0
 
+def on_log(client, userdata, level, buf):
+    print("log " + buf)
+
+
+def on_connect(client, userdata, flags, rc):
+    if rc==0:
+        print("connected ok")
+    else:
+        print("Bad connection Returned code ", rc)
+
+
+def on_disconnect(client, userdata, flags, rc=0):
+    print("Disconnected code " + str(rc))
+
+
+def on_message(client, userdata, msg):
+    topic = msg.topic
+    m_decode = str(msg.payload.decode("utf-8"))
+    print("message received " + m_decode)
+
+
+def client(something, simultaneous_launcher):
+    global delta
+    try:
+        print("wait update")
+        simultaneous_launcher.wait()
+    except threading.BrokenBarrierError as msg:
+        print("[recorder] thread couldn't fully start up")
+    broker = "test.mosquitto.org"
+    client = mqtt.Client("sensor1")
+    client.on_connect = on_connect
+    client.connect(broker)
+    client.loop_start()
+    while True:
+        client.publish("deck/entry1", "delta={0}".format(delta))
+        delta = 0
+        time.sleep(120)
+    client.disconnect()
+    client.loop_stop()
+
 
 def updater(something,simultaneous_launcher):
     global delta
@@ -166,7 +206,7 @@ def Main(trigger):
 
 
     # starting the workers/threads
-    updater_thread = threading.Thread(target=updater, args=(1, simultaneous_launcher))
+    updater_thread = threading.Thread(target=client, args=(1, simultaneous_launcher))
     rtod_thread = threading.Thread(target=rtod, args=(1, simultaneous_launcher))
     rtod_thread.start()
     updater_thread.start()
